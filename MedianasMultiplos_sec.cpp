@@ -74,7 +74,7 @@ void sec(int columnas,int *m,int *v, int debug, int ne)
 {
 	printf("Comenzando ordenamiento matriz experimento 1\n");
 	int filas = columnas + 1;
-	int *indiceV = v;	
+		
 	for(int i = 0 ; i < filas ; i++)
 	{	
 		int *inicio = m + columnas*i; // Inicio de la fila
@@ -100,26 +100,36 @@ void sec(int columnas,int *m,int *v, int debug, int ne)
 				fila[z] = tmp;				
 			}
 		}	
+
 		/*Fila ordenada*/
-		/*		
-		for(int j = 0 ; j< columnas; j++)
-		{
-			printf("%i\t",fila[j]);
-		}
-		*/
+		if(debug)
+		{			
+			printf("\n");
+			for(int j = 0 ; j< columnas; j++)
+			{
+				printf("%i\t",fila[j]);
+			}
+		}				
 		
 		/*Ahora contamos el número de veces que se encuentra  mediana = fila[ columnas / 2 +1]*/			
-		int mediana = fila[columnas/2 + 1];
-		printf("Mediana %i  \t %i\n",i,mediana);
-		int *tmp = m;
-		for(int f = 0 ; f < (columnas+1)*filas; f++)
+		int mediana = fila[columnas/2];
+				
+		int *indiceV = m;  // Dirección de memoria del i-esímo campo de la matirz de resultados. 				
+		for(int f = 0 ; f < (columnas)*filas; f++)
 		{
-			if(mediana==*tmp)
+			//printf("\n%i)  \t %i --- %i = %i\n",f, *indiceV, mediana,  *indiceV%mediana);			
+			if(mediana == 0)
 			{
-				*indiceV = *indiceV++;
+				indiceV++;
+				break;
 			}
-		}
-		indiceV++;			
+			/*Si es menor no */
+			if((*indiceV%mediana)==0)
+			{
+				v[i]++;
+			}						
+			indiceV++;
+		}				
 	}
 }
 

@@ -7,7 +7,25 @@
 			"command": "/usr/bin/g++",
 			"args": [
 				"-d",
-				"-g",				
+				"-g",
+				"-g",
+				"${file}",
+				"-o",
+				"${fileDirname}/${fileBasenameNoExtension}"
+			],
+			"options": {
+				"cwd": "/usr/bin"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": "build"
+		},
+		{
+			"type": "shell",
+			"label": "C/C++: g++-7 build active file",
+			"command": "/usr/bin/g++-7",
+			"args": [
 				"-g",
 				"${file}",
 				"-o",
