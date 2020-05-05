@@ -72,13 +72,13 @@ ne -> Nómero del experimento en ejecución (para depuración)
 */
 void sec(int columnas,int *m,int *v, int debug, int ne) 
 {
-	printf("Comenzando ordenamiento matriz experimento 1\n");
+	printf("Comenzando ordenamiento matriz experimento %i\n",ne);
 	int filas = columnas + 1;
 		
 	for(int i = 0 ; i < filas ; i++)
 	{	
 		int *inicio = m + columnas*i; // Inicio de la fila
-		int fila[columnas]; // Columna temporal 
+		int *fila = new int[columnas]; 			// Columna temporal 
 		for(int x = 0; x <columnas; x++)
 		{
 			fila[x] = *inicio;
