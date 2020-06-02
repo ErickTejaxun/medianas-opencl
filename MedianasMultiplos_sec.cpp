@@ -138,6 +138,9 @@ void sec(int columnas,int *m,int *v, int debug, int ne)
 // **************************************************************************
 
 /*
+
+user
+vQv1krR4bSSh
 Recibiró los siguientes parómetros (los parómetros entre corchetes son opcionales): fichEntrada [-d]
 fichEntrada -> Obligatorio. Fichero de entrada con los parómetros de lanzamiento de los experimentos
 -d -> Opcional. Si se indica, se mostrarón por pantalla los valores iniciales, finales y tiempo de cada experimento
