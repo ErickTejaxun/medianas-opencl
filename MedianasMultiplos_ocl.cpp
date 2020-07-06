@@ -139,8 +139,8 @@ cl_int InicializarEntornoOCL(EntornoOCL_t *entorno)
 	entorno->contexto = clCreateContext (NULL, num_devices, entorno->dispositivos, NULL, NULL, NULL);
 
 	/*Creamos la cola de comandos*/
-	entorno->cola = clCreateCommandQueue (entorno->contexto, entorno->dispositivos[0], 0, NULL);	
-    
+	entorno->cola = clCreateCommandQueue (entorno->contexto, entorno->dispositivos[0], 0, NULL);	    
+	
     /*Ahora creamos el programa*/
 	FILE *fp;	
 	char fileName[] = "./ordenamiento_kernel.cl";
@@ -168,6 +168,7 @@ cl_int LiberarEntornoOCL(EntornoOCL_t *entorno)
 	clReleaseKernel (entorno->kernel);
 	clReleaseProgram (entorno->programa);
 	clReleaseCommandQueue (entorno->cola);
+	/*Aqui vamos a liberar los buffers*/
 	//clReleaseMemObject(buffer);    
 	clReleaseContext (entorno->contexto);
 	free (entorno->plataformas);
@@ -185,6 +186,53 @@ entorno -> Entorno OpenCL
 void ocl(int columnas,int *m,int *v, int debug, int ne, EntornoOCL_t entorno) 
 {
 	/*Aqui hay que hacer la reparticiòn del trabajo*/ 
+	printf("---%i columnas\n",columnas);
+	cl_mem buffer;
+	size_t data_size = sizeof (int) * 1000;
+	buffer = clCreateBuffer (entorno.contexto, CL_MEM_READ_ONLY, data_size, NULL, NULL);
+	int* a = NULL;
+	clEnqueueWriteBuffer (entorno.cola, buffer, CL_FALSE, 0, data_size, a, 0, NULL, NULL);
+	clSetKernelArg (entorno.kernel, 0, sizeof (cl_mem), &buffer);
+
+
+    /* define index space (number of work-items), here only use 1 work group */
+    size_t global_work_size[1];
+
+    /* The number of work-items in work-group is `num_elements` */
+    global_work_size[0] = columnas;	
+
+    
+
+    //clEnqueueReadBuffer (entorno.cola, , CL_TRUE, 0, data_size, c, 0, NULL, NULL);
+
+    /*(__global int *columnas,
+     __global int *m,
+	__global int *v, 
+	__global int *debug, 
+	__global int *ne
+	)*/
+
+	cl_mem buffer_m, buffer_v, buffer_debug, buffer_columnas, buffer_ne;
+    	buffer_columnas = clCreateBuffer (entorno.contexto, CL_MEM_READ_ONLY, 1, NULL, NULL);
+	buffer_m = clCreateBuffer (entorno.contexto, CL_MEM_READ_ONLY, columnas*columnas-1, NULL, NULL);
+	buffer_v = clCreateBuffer (entorno.contexto, CL_MEM_READ_WRITE, columnas-1, NULL, NULL);
+	buffer_debug = clCreateBuffer (entorno.contexto, CL_MEM_READ_ONLY, 1, NULL, NULL);	
+	buffer_ne = clCreateBuffer (entorno.contexto, CL_MEM_READ_ONLY, 1, NULL, NULL);	
+
+	clEnqueueWriteBuffer (entorno.cola, buffer_columnas, CL_FALSE, 0, data_size, &columnas, 0, NULL, NULL);
+	clEnqueueWriteBuffer (entorno.cola, buffer_m, CL_FALSE, 0, data_size, m, 0, NULL, NULL);
+	clEnqueueWriteBuffer (entorno.cola, buffer_v, CL_FALSE, 0, data_size, v, 0, NULL, NULL);
+	clEnqueueWriteBuffer (entorno.cola, buffer_debug, CL_FALSE, 0, data_size, &debug, 0, NULL, NULL);
+	clEnqueueWriteBuffer (entorno.cola, buffer_ne, CL_FALSE, 0, data_size, &ne, 0, NULL, NULL);
+
+    clSetKernelArg (entorno.kernel, 0, sizeof (cl_mem), &buffer_columnas);
+    clSetKernelArg (entorno.kernel, 1, sizeof (cl_mem), &buffer_m);
+    clSetKernelArg (entorno.kernel, 2, sizeof (cl_mem), &buffer_v);	
+    clSetKernelArg (entorno.kernel, 3, sizeof (cl_mem), &buffer_debug);	
+    clSetKernelArg (entorno.kernel, 4, sizeof (cl_mem), &buffer_ne);
+
+    clEnqueueNDRangeKernel (entorno.cola,entorno.kernel, 1, NULL, global_work_size, NULL, 0, NULL, NULL);
+
 }
 // **************************************************************************
 // *************************** FIN IMPLEMENTACI�N ***************************

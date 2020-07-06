@@ -8,14 +8,14 @@
 
 using namespace std;
 
-//Inicializa la matriz m de tamaño nxn en el rango (lv, uv)
+//Inicializa la matriz m de tamaï¿½o nxn en el rango (lv, uv)
 void inicializematrix(int n,int *m,int lv,int uv)
 {
 	for(int i=0;i<n;i++)
 		m[i]=(int) (((1.*rand())/RAND_MAX)*(uv-lv)+lv);
 }
 
-//Muestra la matriz m de tamaño nxn
+//Muestra la matriz m de tamaï¿½o nxn
 void escribirmatrix(int n,int *m){
 	for (int i=0; i<n+1; i++)
 	{
@@ -26,7 +26,7 @@ void escribirmatrix(int n,int *m){
 	cout <<endl;
 }
 
-//Muestra el vector v de tamaño n
+//Muestra el vector v de tamaï¿½o n
 void escribirvector(int n,int *v)
 {
 	for(int i=0;i<n;i++)
@@ -91,60 +91,127 @@ typedef struct {
 } EntornoOCL_t;
 
 // **************************************************************************
-// ***************************** IMPLEMENTACIÓN *****************************
+// ***************************** IMPLEMENTACIï¿½N *****************************
 // **************************************************************************
-cl_int InicializarEntornoOCL(EntornoOCL_t *entorno) {
+cl_int InicializarEntornoOCL(EntornoOCL_t *entorno) 
+{
+	cl_uint  num_platforms = 0;
+	cl_int error;
+	error = clGetPlatformIDs (0, NULL, &num_platforms);
+	if(error!=CL_SUCCESS)
+	{
+		printf("Error al obtener plataforma\n");
+		return error;
+	}
+	printf("Se encontraron %i plataformas\n",num_platforms);
 
+	/*ObtenciÃ²n de ids de plataformas*/
+	entorno->plataformas = (cl_platform_id *) malloc (num_platforms * sizeof (cl_platform_id));
+	error = clGetPlatformIDs (num_platforms, entorno->plataformas, NULL);
+	if(error!=CL_SUCCESS)
+	{
+		printf("Error al obtener informaciÃ³n de plataformas\n");
+		return error;
+	}	
+
+	cl_uint num_devices = 0;
+	error = clGetDeviceIDs (entorno->plataformas[0], CL_DEVICE_TYPE_CPU, 0, NULL, &num_devices);
+	if(error!=CL_SUCCESS)
+	{
+		printf("Error al obtener dispositivos \n");
+		return error;
+	}	
+	printf("Se encontraron %i dispositivos \n",num_devices);
+
+	/*Preparar espacio de memoria para los dispositivos*/	
+	entorno->dispositivos = (cl_device_id *) malloc (num_devices * sizeof (cl_device_id));
+
+	/*Obtenemos informaciÃ³n de los dispositivos */
+	error = clGetDeviceIDs (entorno->plataformas[0], CL_DEVICE_TYPE_CPU, num_devices, entorno->dispositivos, NULL);	
+
+	/*Creamos el contexto*/
+	entorno->contexto = clCreateContext (NULL, num_devices, entorno->dispositivos, NULL, NULL, NULL);
+
+	/*Creamos la cola de comandos*/
+	entorno->cola = clCreateCommandQueue (entorno->contexto, entorno->dispositivos[0], 0, NULL);	
+    
+    /*Ahora creamos el programa*/
+	FILE *fp;	
+	char fileName[] = "./ordenamiento_kernel.cl";
+	char *source_str;
+	size_t tamanio_fuente;	
+	fp = fopen(fileName, "r");
+	if (!fp) 
+	{
+		fprintf(stderr, "Fallo al cargar el kernel .\n");
+		exit(1);
+	}
+
+	source_str = (char*)malloc(MAX_SOURCE_SIZE);
+	tamanio_fuente = fread(source_str, 1, MAX_SOURCE_SIZE, fp);
+	printf("Tamaino fuente: %d\n", (int)tamanio_fuente);
+	fclose(fp);
+	entorno->programa = clCreateProgramWithSource(entorno->contexto, 1, (const char **)&source_str,(const size_t *)&tamanio_fuente, &error);
+
+	/*Ahora creamos el kernel*/
+	entorno->kernel = clCreateKernel (entorno->programa, "MedianasMultiplos", NULL);
 }
-
-cl_int LiberarEntornoOCL(EntornoOCL_t *entorno) {
-
+cl_int LiberarEntornoOCL(EntornoOCL_t *entorno) 
+{
+	clReleaseKernel (entorno->kernel);
+	clReleaseProgram (entorno->programa);
+	clReleaseCommandQueue (entorno->cola);
+	/*Aqui vamos a liberar los buffers*/
+	//clReleaseMemObject(buffer);    
+	clReleaseContext (entorno->contexto);
+	free (entorno->plataformas);
+	free (entorno->dispositivos);
 }
 
 /*
-columnas -> Número de columnas de la matriz. El número de filas de la matriz y tamaño del vector resultado es igual a columnas+1
-m -> Matriz de tamaño nxn
-v -> Vector resultado de tamaño columnas+1
-debug -> Bandera para depuración
-ne -> Número del experimento en ejecución (para depuración)
+columnas -> Nï¿½mero de columnas de la matriz. El nï¿½mero de filas de la matriz y tamaï¿½o del vector resultado es igual a columnas+1
+m -> Matriz de tamaï¿½o nxn
+v -> Vector resultado de tamaï¿½o columnas+1
+debug -> Bandera para depuraciï¿½n
+ne -> Nï¿½mero del experimento en ejecuciï¿½n (para depuraciï¿½n)
 entorno -> Entorno OpenCL
 */
 void ocl(int columnas,int *m,int *v, int debug, int ne, EntornoOCL_t entorno) {
 
 }
 // **************************************************************************
-// *************************** FIN IMPLEMENTACIÓN ***************************
+// *************************** FIN IMPLEMENTACIï¿½N ***************************
 // **************************************************************************
 
 /*
-Recibirá los siguientes parámetros (los parámetros entre corchetes son opcionales): fichEntrada [-d] [-wi work_items] [-wi_wg workitems_por_workgroup]
-fichEntrada -> Obligatorio. Fichero de entrada con los parámetros de lanzamiento de los experimentos
--d -> Opcional. Si se indica, se mostrarán por pantalla los valores iniciales, finales y tiempo de cada experimento
--wi work_items -> Opcional. Si se indica, se lanzarán tantos work items como se indique en work_items (para OpenCL)
--wi_wg workitems_por_workgroup -> Opcional. Si se indica, se lanzarán tantos work items en cada work group como se indique en WorkItems_por_WorkGroup (para OpenCL)
+Recibirï¿½ los siguientes parï¿½metros (los parï¿½metros entre corchetes son opcionales): fichEntrada [-d] [-wi work_items] [-wi_wg workitems_por_workgroup]
+fichEntrada -> Obligatorio. Fichero de entrada con los parï¿½metros de lanzamiento de los experimentos
+-d -> Opcional. Si se indica, se mostrarï¿½n por pantalla los valores iniciales, finales y tiempo de cada experimento
+-wi work_items -> Opcional. Si se indica, se lanzarï¿½n tantos work items como se indique en work_items (para OpenCL)
+-wi_wg workitems_por_workgroup -> Opcional. Si se indica, se lanzarï¿½n tantos work items en cada work group como se indique en WorkItems_por_WorkGroup (para OpenCL)
 */
 
 int main(int argc,char *argv[]) {
 	int i,
 		debug,				   		// Indica si se desean mostrar los tiempos y resultados parciales de los experimentos
-		num_workitems=0, 		    // Número de work items que se utilizarán
-		workitems_por_workgroups=0, // Número de work items por cada work group que se utilizarán
-		num_problems,	  		   	// número de problemas
+		num_workitems=0, 		    // Nï¿½mero de work items que se utilizarï¿½n
+		workitems_por_workgroups=0, // Nï¿½mero de work items por cada work group que se utilizarï¿½n
+		num_problems,	  		   	// nï¿½mero de problemas
 		columnas,	  			   	// Columnas de la matriz. Debe ser impar
-		filas, 		  			   	// Filas de la matriz. Es igual al número de columnas más uno.
-		*m,					   		// Matriz (será de tamaño nxn)
-		*v,					   		// Vector solución (será de tamaño n)
-		seed, 				   		// Semilla para la generación de números aleatorios
-		lower_value,  			   	// Límite inferior para los valores de la matriz
-		upper_value, 			   	// Límite superior para los valores de la matriz
+		filas, 		  			   	// Filas de la matriz. Es igual al nï¿½mero de columnas mï¿½s uno.
+		*m,					   		// Matriz (serï¿½ de tamaï¿½o nxn)
+		*v,					   		// Vector soluciï¿½n (serï¿½ de tamaï¿½o n)
+		seed, 				   		// Semilla para la generaciï¿½n de nï¿½meros aleatorios
+		lower_value,  			   	// Lï¿½mite inferior para los valores de la matriz
+		upper_value, 			   	// Lï¿½mite superior para los valores de la matriz
 		myrank,				   		// Identificador del proceso
-		size;				   		// Número de procesos lanzados
+		size;				   		// Nï¿½mero de procesos lanzados
 	long long ti,tf,tt=0;		   	// Tiempos inicial, final y total
 	EntornoOCL_t entorno;		   	// Entorno para el control de OpenCL
 	FILE *f;					   	// Fichero de entrada con los datos de los experimentos
 	
 	if (!ObtenerParametros(argc, argv, &debug, &num_workitems, &workitems_por_workgroups)) {
-		printf("Ejecución incorrecta\nEl formato correcto es %s fichEntrada [-d] [-wi work_items] [-wi_wg workitems_por_workgroup]\n", argv[0]);
+		printf("Ejecuciï¿½n incorrecta\nEl formato correcto es %s fichEntrada [-d] [-wi work_items] [-wi_wg workitems_por_workgroup]\n", argv[0]);
 		return 0;
 	}
 
@@ -154,36 +221,36 @@ int main(int argc,char *argv[]) {
 
 	InicializarEntornoOCL(&entorno);
 
-	// Se lee el número de experimentos a realizar
-	if(myrank==0) { // Sólo el proceso 0 tiene acceso al fichero y, por tanto, a los datos
+	// Se lee el nï¿½mero de experimentos a realizar
+	if(myrank==0) { // Sï¿½lo el proceso 0 tiene acceso al fichero y, por tanto, a los datos
 		f=fopen(argv[1],"r");
 		fscanf(f, "%d",&num_problems);
 	}
 
 	ti=mseconds(); 
 // **************************************************************************
-// ***************************** IMPLEMENTACIÓN *****************************
+// ***************************** IMPLEMENTACIï¿½N *****************************
 // **************************************************************************
 
-	// Se debe enviar el número de experimentos a todos los procesos 
+	// Se debe enviar el nï¿½mero de experimentos a todos los procesos 
 	
 // **************************************************************************
-// *************************** FIN IMPLEMENTACIÓN ***************************
+// *************************** FIN IMPLEMENTACIï¿½N ***************************
 // **************************************************************************
 	tf=mseconds(); 
 	tt+=tf-ti;
 	
 	for(i=0;i<num_problems;i++)
 	{
-		if(myrank==0) { // Sólo el proceso 0 tiene acceso al fichero y, por tanto, a los datos
+		if(myrank==0) { // Sï¿½lo el proceso 0 tiene acceso al fichero y, por tanto, a los datos
 			//Por cada experimento se leen
-			fscanf(f, "%d",&columnas);		//El número de columnas. Debe ser impar
-			filas=columnas+1;				//El número de filas es igual al número de columnas +1
-			fscanf(f, "%d",&seed);			//La semilla para la generación de números aleatorios
-			fscanf(f, "%d",&lower_value);	//El valor mínimo de para la generación de valores aleatorios de la matriz m (se generan entre lower_value+1 y upper_value-1)
-			fscanf(f, "%d",&upper_value);	//El valor máximo de para la generación de valores aleatorios de la matriz m
+			fscanf(f, "%d",&columnas);		//El nï¿½mero de columnas. Debe ser impar
+			filas=columnas+1;				//El nï¿½mero de filas es igual al nï¿½mero de columnas +1
+			fscanf(f, "%d",&seed);			//La semilla para la generaciï¿½n de nï¿½meros aleatorios
+			fscanf(f, "%d",&lower_value);	//El valor mï¿½nimo de para la generaciï¿½n de valores aleatorios de la matriz m (se generan entre lower_value+1 y upper_value-1)
+			fscanf(f, "%d",&upper_value);	//El valor mï¿½ximo de para la generaciï¿½n de valores aleatorios de la matriz m
 			if (columnas%2==0) {
-				printf("El experimento %d no puede realizarse por no ser la dimensión de la matriz impar\n", i);
+				printf("El experimento %d no puede realizarse por no ser la dimensiï¿½n de la matriz impar\n", i);
 				continue;
 			}
 
@@ -201,19 +268,19 @@ int main(int argc,char *argv[]) {
 
 		ti=mseconds(); 
 // **************************************************************************
-// ***************************** IMPLEMENTACIÓN *****************************
+// ***************************** IMPLEMENTACIï¿½N *****************************
 // **************************************************************************
 
-		// Deberán crearse las estructuras que se consideren necesarias para almacenar las partes de la información de cada proceso
-		// El proceso 0 debe repartir la información a procesar entre todos los procesos (incluido él mismo)
+		// Deberï¿½n crearse las estructuras que se consideren necesarias para almacenar las partes de la informaciï¿½n de cada proceso
+		// El proceso 0 debe repartir la informaciï¿½n a procesar entre todos los procesos (incluido ï¿½l mismo)
 		
-		ocl(/*Deben usarse los parámetros correspondientes a la parte de la información a procesar por cada proceso*/);
+		ocl(/*Deben usarse los parï¿½metros correspondientes a la parte de la informaciï¿½n a procesar por cada proceso*/);
 
-		// El proceso 0 debe recolectar la información procesada por todos los procesos (incluida la suya)
-		// Deberán liberarse todas las estructuras creadas para almacenar las partes de la información de cada proceso
+		// El proceso 0 debe recolectar la informaciï¿½n procesada por todos los procesos (incluida la suya)
+		// Deberï¿½n liberarse todas las estructuras creadas para almacenar las partes de la informaciï¿½n de cada proceso
 		
 // **************************************************************************
-// *************************** FIN IMPLEMENTACIÓN ***************************
+// *************************** FIN IMPLEMENTACIï¿½N ***************************
 // **************************************************************************
 		tf=mseconds(); 
 		tt+=tf-ti;
