@@ -9,7 +9,7 @@
 using namespace std;
 
 #define MAX_SOURCE_SIZE (0x100000)
-
+void CodigoError(cl_int err);
 
 
 
@@ -117,6 +117,7 @@ cl_int InicializarEntornoOCL(EntornoOCL_t *entorno)
 	if(error!=CL_SUCCESS)
 	{
 		printf("Error al obtener información de plataformas\n");
+		CodigoError(error);
 		return error;
 	}	
 
@@ -125,6 +126,7 @@ cl_int InicializarEntornoOCL(EntornoOCL_t *entorno)
 	if(error!=CL_SUCCESS)
 	{
 		printf("Error al obtener dispositivos \n");
+		CodigoError(error);
 		return error;
 	}	
 	printf("Se encontraron %i dispositivos \n",num_devices);
@@ -134,13 +136,28 @@ cl_int InicializarEntornoOCL(EntornoOCL_t *entorno)
 
 	/*Obtenemos información de los dispositivos */
 	error = clGetDeviceIDs (entorno->plataformas[0], CL_DEVICE_TYPE_CPU, num_devices, entorno->dispositivos, NULL);	
-
+	if(error!=CL_SUCCESS)
+	{		
+		CodigoError(error);
+		return error;
+	}	
 	/*Creamos el contexto*/
-	entorno->contexto = clCreateContext (NULL, num_devices, entorno->dispositivos, NULL, NULL, NULL);
-
+	entorno->contexto = clCreateContext (NULL, num_devices, entorno->dispositivos, NULL, NULL, &error);
+	if(error!=CL_SUCCESS)
+	{		
+		printf("error al crear contexto \n");
+		CodigoError(error);
+		return error;
+	}
 	/*Creamos la cola de comandos*/
-	entorno->cola = clCreateCommandQueue (entorno->contexto, entorno->dispositivos[0], 0, NULL);	    
-	
+	entorno->cola = clCreateCommandQueue (entorno->contexto, entorno->dispositivos[0], 0, &error);	    
+	if(error!=CL_SUCCESS)
+	{		
+		printf("error al crear cola de comandos. \n");
+		CodigoError(error);
+		return error;
+	}
+
     /*Ahora creamos el programa*/
 	FILE *fp;	
 	char fileName[] = "./ordenamiento_kernel.cl";
@@ -155,12 +172,34 @@ cl_int InicializarEntornoOCL(EntornoOCL_t *entorno)
 
 	source_str = (char*)malloc(MAX_SOURCE_SIZE);
 	tamanio_fuente = fread(source_str, 1, MAX_SOURCE_SIZE, fp);
+	//printf("Kernel\n:%s",source_str);
 	printf("Tamaino fuente: %d\n", (int)tamanio_fuente);
 	fclose(fp);
 	entorno->programa = clCreateProgramWithSource(entorno->contexto, 1, (const char **)&source_str,(const size_t *)&tamanio_fuente, &error);
+	if(error!=CL_SUCCESS)
+	{		
+		printf("Error al crear el programa.");
+		CodigoError(error);
+		return error;
+	}		
+
+
+	error = clBuildProgram(entorno->programa, 1, &entorno->dispositivos[0], NULL, NULL, NULL);
+	if(error!=CL_SUCCESS)
+	{			
+		printf("Error al construir el programa\n")	;
+		CodigoError(error);	
+		return error;
+	}
 
 	/*Ahora creamos el kernel*/
-	entorno->kernel = clCreateKernel (entorno->programa, "MedianasMultiplos", NULL);
+	entorno->kernel = clCreateKernel (entorno->programa, "ordenar", &error);
+	if(error!=CL_SUCCESS)
+	{			
+		printf("Error al crear el kernel\n")	;
+		CodigoError(error);	
+		return error;
+	}	
 }
 
 cl_int LiberarEntornoOCL(EntornoOCL_t *entorno) 
@@ -186,13 +225,10 @@ entorno -> Entorno OpenCL
 void ocl(int columnas,int *m,int *v, int debug, int ne, EntornoOCL_t entorno) 
 {
 	/*Aqui hay que hacer la reparticiòn del trabajo*/ 
-	printf("---%i columnas\n",columnas);
+	cl_int error;	
 	cl_mem buffer;
-	size_t data_size = sizeof (int) * 1000;
-	buffer = clCreateBuffer (entorno.contexto, CL_MEM_READ_ONLY, data_size, NULL, NULL);
-	int* a = NULL;
-	clEnqueueWriteBuffer (entorno.cola, buffer, CL_FALSE, 0, data_size, a, 0, NULL, NULL);
-	clSetKernelArg (entorno.kernel, 0, sizeof (cl_mem), &buffer);
+	size_t data_size = sizeof (int) * 1000;	
+		
 
 
     /* define index space (number of work-items), here only use 1 work group */
@@ -212,26 +248,74 @@ void ocl(int columnas,int *m,int *v, int debug, int ne, EntornoOCL_t entorno)
 	__global int *ne
 	)*/
 
-	cl_mem buffer_m, buffer_v, buffer_debug, buffer_columnas, buffer_ne;
+	cl_mem buffer_m, buffer_v, buffer_debug, buffer_columnas, buffer_ne,buffer_fila;
     	buffer_columnas = clCreateBuffer (entorno.contexto, CL_MEM_READ_ONLY, 1, NULL, NULL);
 	buffer_m = clCreateBuffer (entorno.contexto, CL_MEM_READ_ONLY, columnas*columnas-1, NULL, NULL);
 	buffer_v = clCreateBuffer (entorno.contexto, CL_MEM_READ_WRITE, columnas-1, NULL, NULL);
 	buffer_debug = clCreateBuffer (entorno.contexto, CL_MEM_READ_ONLY, 1, NULL, NULL);	
 	buffer_ne = clCreateBuffer (entorno.contexto, CL_MEM_READ_ONLY, 1, NULL, NULL);	
+	buffer_fila = clCreateBuffer (entorno.contexto, CL_MEM_READ_ONLY, columnas, NULL, NULL);	
+	cl_event eventos[6];
 
-	clEnqueueWriteBuffer (entorno.cola, buffer_columnas, CL_FALSE, 0, data_size, &columnas, 0, NULL, NULL);
-	clEnqueueWriteBuffer (entorno.cola, buffer_m, CL_FALSE, 0, data_size, m, 0, NULL, NULL);
-	clEnqueueWriteBuffer (entorno.cola, buffer_v, CL_FALSE, 0, data_size, v, 0, NULL, NULL);
-	clEnqueueWriteBuffer (entorno.cola, buffer_debug, CL_FALSE, 0, data_size, &debug, 0, NULL, NULL);
-	clEnqueueWriteBuffer (entorno.cola, buffer_ne, CL_FALSE, 0, data_size, &ne, 0, NULL, NULL);
+	error = clEnqueueWriteBuffer (entorno.cola, buffer_columnas, CL_TRUE, 0, 1, &columnas, 0, NULL, &eventos[0]);
+	if(error!=CL_SUCCESS)
+	{		
+		CodigoError(error);		
+	}
 
-    clSetKernelArg (entorno.kernel, 0, sizeof (cl_mem), &buffer_columnas);
-    clSetKernelArg (entorno.kernel, 1, sizeof (cl_mem), &buffer_m);
-    clSetKernelArg (entorno.kernel, 2, sizeof (cl_mem), &buffer_v);	
-    clSetKernelArg (entorno.kernel, 3, sizeof (cl_mem), &buffer_debug);	
-    clSetKernelArg (entorno.kernel, 4, sizeof (cl_mem), &buffer_ne);
+	error = clEnqueueWriteBuffer (entorno.cola, buffer_m, CL_TRUE, 0, columnas*columnas-1, m, 1, &eventos[0], &eventos[1]);
+	if(error!=CL_SUCCESS)
+	{		
+		CodigoError(error);		
+	}	
+	error = clEnqueueWriteBuffer (entorno.cola, buffer_v, CL_TRUE, 0, columnas-1, v,  1, &eventos[1], &eventos[2]);
+	if(error!=CL_SUCCESS)
+	{		
+		CodigoError(error);		
+	}	
+	error = clEnqueueWriteBuffer (entorno.cola, buffer_debug, CL_TRUE, 0, 1, &debug,  1, &eventos[2], &eventos[3]);
+	if(error!=CL_SUCCESS)
+	{		
+		CodigoError(error);		
+	}	
+	error = clEnqueueWriteBuffer (entorno.cola, buffer_ne, CL_TRUE, 0, 1, &ne,  1, &eventos[3], &eventos[4]);
+	if(error!=CL_SUCCESS)
+	{		
+		CodigoError(error);		
+	}	
 
-    clEnqueueNDRangeKernel (entorno.cola,entorno.kernel, 1, NULL, global_work_size, NULL, 0, NULL, NULL);
+	int *fila__ = new int[columnas]; 			// Columna temporal 
+	error = clEnqueueWriteBuffer (entorno.cola, buffer_fila, CL_TRUE, 0, 1, &fila__,  1, &eventos[4], &eventos[5]);
+	if(error!=CL_SUCCESS)
+	{		
+		CodigoError(error);		
+	}	
+
+	error =  clSetKernelArg (entorno.kernel, 0, sizeof (cl_mem), &buffer_columnas);
+	if(error!=CL_SUCCESS)
+	{		
+		CodigoError(error);		
+	}		
+	clSetKernelArg (entorno.kernel, 1, sizeof (cl_mem), &buffer_m);
+	clSetKernelArg (entorno.kernel, 2, sizeof (cl_mem), &buffer_v);	
+	clSetKernelArg (entorno.kernel, 3, sizeof (cl_mem), &buffer_debug);	
+	clSetKernelArg (entorno.kernel, 4, sizeof (cl_mem), &buffer_ne);
+	clSetKernelArg (entorno.kernel, 5, sizeof (cl_mem), &buffer_fila);
+
+	printf("Empezando ejecuciión\n");
+	
+
+	//error =clEnqueueTask(entorno.cola,entorno.kernel,4,  eventos, NULL );
+	error =clEnqueueNDRangeKernel (entorno.cola,entorno.kernel, 1, NULL, global_work_size, NULL, 6, eventos, NULL );
+	//clEnqueueTask(entorno.cola, entorno.kernel, 0, NULL,NULL);
+	if(error!=CL_SUCCESS)
+	{
+		printf("Error al ejecutar el kernel\n");
+		CodigoError(error);
+	}
+	clFinish(entorno.cola);
+	printf("Fin ejecuciión\n");
+	//escribirmatrix(columnas,m);
 
 }
 // **************************************************************************
@@ -315,4 +399,46 @@ int main(int argc,char *argv[]) {
 	printf("\nTiempo total de %d experimentos: %Ld ms\n", num_problems, tt);
 	
 	return 0;
+}
+
+
+
+void CodigoError(cl_int err) {
+	switch (err) {
+		case CL_SUCCESS: printf("Ejecuci�n correcta\n"); break;
+		case CL_BUILD_PROGRAM_FAILURE: printf("CL_BUILD_PROGRAM_FAILURE\n"); break;
+		case CL_COMPILER_NOT_AVAILABLE: printf("CL_COMPILER_NOT_AVAILABLE\n"); break;
+		case CL_DEVICE_NOT_AVAILABLE: printf("CL_DEVICE_NOT_AVAILABLE \n"); break;
+		case CL_DEVICE_NOT_FOUND: printf("CL_DEVICE_NOT_FOUND\n"); break;
+		case CL_INVALID_ARG_INDEX : printf("CL_INVALID_ARG_INDEX \n"); break;
+		case CL_INVALID_ARG_SIZE : printf("CL_INVALID_ARG_SIZE \n"); break;
+		case CL_INVALID_ARG_VALUE: printf("CL_INVALID_ARG_VALUE\n"); break;
+		case CL_INVALID_BUFFER_SIZE : printf("CL_INVALID_BUFFER_SIZE \n"); break;
+		case CL_INVALID_BUILD_OPTIONS: printf("CL_INVALID_BUILD_OPTIONS\n"); break;
+		case CL_INVALID_COMMAND_QUEUE : printf("CL_INVALID_COMMAND_QUEUE \n"); break;
+		case CL_INVALID_CONTEXT: printf("CL_INVALID_CONTEXT\n"); break;
+		case CL_INVALID_DEVICE_TYPE: printf("CL_INVALID_DEVICE_TYPE\n"); break;
+		case CL_INVALID_EVENT: printf("CL_INVALID_EVENT\n"); break;
+		case CL_INVALID_EVENT_WAIT_LIST : printf("CL_INVALID_EVENT_WAIT_LIST \n"); break;
+		case CL_INVALID_GLOBAL_WORK_SIZE : printf("CL_INVALID_GLOBAL_WORK_SIZE \n"); break;
+		case CL_INVALID_HOST_PTR : printf("CL_INVALID_HOST_PTR \n"); break;
+		case CL_INVALID_KERNEL: printf("CL_INVALID_KERNEL \n"); break;
+		case CL_INVALID_KERNEL_ARGS : printf("CL_INVALID_KERNEL_ARGS \n"); break;
+		case CL_INVALID_KERNEL_NAME: printf("CL_INVALID_KERNEL_NAME\n"); break;
+		case CL_INVALID_MEM_OBJECT : printf("CL_INVALID_MEM_OBJECT \n"); break;
+		case CL_INVALID_OPERATION : printf("\n"); break;
+		case CL_INVALID_PLATFORM: printf("CL_INVALID_PLATFORM\n"); break;
+		case CL_INVALID_PROGRAM : printf("CL_INVALID_PROGRAM \n"); break;
+		case CL_INVALID_PROGRAM_EXECUTABLE : printf("CL_INVALID_PROGRAM_EXECUTABLE\n"); break;
+		case CL_INVALID_QUEUE_PROPERTIES: printf("CL_INVALID_QUEUE_PROPERTIES\n"); break;
+		case CL_INVALID_VALUE: printf("CL_INVALID_VALUE\n"); break;
+		case CL_INVALID_WORK_DIMENSION : printf("CL_INVALID_WORK_DIMENSION \n"); break;
+		case CL_INVALID_WORK_GROUP_SIZE : printf("CL_INVALID_WORK_GROUP_SIZE \n"); break;
+		case CL_INVALID_WORK_ITEM_SIZE : printf("CL_INVALID_WORK_ITEM_SIZE \n"); break;
+		case CL_MEM_OBJECT_ALLOCATION_FAILURE : printf("CL_MEM_OBJECT_ALLOCATION_FAILURE \n"); break;
+		case CL_OUT_OF_HOST_MEMORY: printf("CL_OUT_OF_HOST_MEMORY\n"); break;
+		case CL_OUT_OF_RESOURCES: printf("CL_OUT_OF_RESOURCES\n"); break;
+		case CL_PROFILING_INFO_NOT_AVAILABLE : printf("CL_PROFILING_INFO_NOT_AVAILABLE \n"); break;
+		default: printf("C�digo de error no contemplado\n"); break;
+	}
 }
