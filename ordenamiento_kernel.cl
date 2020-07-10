@@ -11,8 +11,7 @@ __kernel void ordenar(__global int *columnas, __global int *m,__global int *v, _
         {
             fila[x] = *inicio;
             inicio++;
-        }		
-        /*
+        }		        
         for(int p = columnas / 2; p > 0 ; p = p/2)
         {							
             for(int q = p; q < columnas; q++)
@@ -45,7 +44,7 @@ __kernel void ordenar(__global int *columnas, __global int *m,__global int *v, _
             indiceV++;
         }
         v[i] = 100;
-        */
+        
     }
 
 } 

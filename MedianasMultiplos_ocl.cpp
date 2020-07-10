@@ -314,7 +314,7 @@ void ocl(int columnas,int *m,int *v, int debug, int ne, EntornoOCL_t entorno)
 		CodigoError(error);
 	}
 	clFinish(entorno.cola);
-	printf("Fin ejecuciión\n");
+	//printf("Fin ejecuciión\n");
 	//escribirmatrix(columnas,m);
 
 }
