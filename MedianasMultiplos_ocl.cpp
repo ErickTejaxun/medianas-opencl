@@ -285,6 +285,7 @@ void ocl(int columnas,int *m,int *v, int debug, int ne, EntornoOCL_t entorno)
 	}	
 
 	int *fila__ = new int[columnas]; 			// Columna temporal 
+	for(int i =0;i<columnas;i++){fila__[i]=i;}
 	error = clEnqueueWriteBuffer (entorno.cola, buffer_fila, CL_TRUE, 0, 1, &fila__,  1, &eventos[4], &eventos[5]);
 	if(error!=CL_SUCCESS)
 	{		
@@ -296,13 +297,14 @@ void ocl(int columnas,int *m,int *v, int debug, int ne, EntornoOCL_t entorno)
 	{		
 		CodigoError(error);		
 	}		
+
 	clSetKernelArg (entorno.kernel, 1, sizeof (cl_mem), &buffer_m);
 	clSetKernelArg (entorno.kernel, 2, sizeof (cl_mem), &buffer_v);	
 	clSetKernelArg (entorno.kernel, 3, sizeof (cl_mem), &buffer_debug);	
 	clSetKernelArg (entorno.kernel, 4, sizeof (cl_mem), &buffer_ne);
 	clSetKernelArg (entorno.kernel, 5, sizeof (cl_mem), &buffer_fila);
 
-	printf("Empezando ejecuciión\n");
+	printf("Empezando ejecución\n");
 	
 
 	//error =clEnqueueTask(entorno.cola,entorno.kernel,4,  eventos, NULL );

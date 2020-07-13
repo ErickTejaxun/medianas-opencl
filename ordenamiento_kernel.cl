@@ -4,14 +4,19 @@ __kernel void ordenar(__global int *columnas, __global int *m,__global int *v, _
     int i = get_global_id (0);        
     int filas = *columnas + 1;        
     if(filas ==12)
-    {
-        printf("Work item %i\t%i\n",i,filas);
-        int *inicio = *m + *columnas*i;         
+    {                        
+        int *inicio = *m + *columnas*i;            
+        printf("\nWork item %i\t%i \tInicia en %i",i,filas,inicio);
+        printf("\tColumnas: %i\n",*columnas);
+        int inicio_ = inicio;
+        printf("%i\t",m[inicio_]);
         for(int x = 0; x <*columnas; x++)
-        {
-            fila[x] = *inicio;
-            inicio++;
-        }		        
+        {            
+            //printf("%i\t",fila[x]);
+            //fila[x] = inicio;            
+            //inicio++;            
+        }		
+        /*
         for(int p = columnas / 2; p > 0 ; p = p/2)
         {							
             for(int q = p; q < columnas; q++)
@@ -44,7 +49,7 @@ __kernel void ordenar(__global int *columnas, __global int *m,__global int *v, _
             indiceV++;
         }
         v[i] = 100;
-        
+        */
     }
 
 } 
