@@ -235,7 +235,7 @@ void ocl(int columnas,int *m,int *v, int debug, int ne, EntornoOCL_t entorno)
     size_t global_work_size[1];
 
     /* The number of work-items in work-group is `num_elements` */
-    global_work_size[0] = columnas;	
+    global_work_size[0] = columnas+1;	
 
     
 
@@ -248,14 +248,30 @@ void ocl(int columnas,int *m,int *v, int debug, int ne, EntornoOCL_t entorno)
 	__global int *ne
 	)*/
 
-	cl_mem buffer_m, buffer_v, buffer_debug, buffer_columnas, buffer_ne,buffer_fila;
+	int *fila__;
+	fila__= new int[columnas+1]; 			// Columna temporal 
+	for(int i =0;i<columnas+1;i++){fila__[i]=i; v[i] = 0;}
+	//printf("\n");
+
+	cl_mem 
+	buffer_m, // Buffer para enviar la matriz
+	buffer_v, // Buffer para enviar el arreglo de medianas
+	buffer_debug, // Buffer para saber si hay que imprimir en forma de debug
+	buffer_columnas, // Numero de columnas
+	buffer_ne,       // Numero del experimento 
+	buffer_fila;     // Buffer para una fila temporal
     	buffer_columnas = clCreateBuffer (entorno.contexto, CL_MEM_READ_ONLY, 1, NULL, NULL);
-	buffer_m = clCreateBuffer (entorno.contexto, CL_MEM_READ_ONLY, columnas*columnas-1, NULL, NULL);
-	buffer_v = clCreateBuffer (entorno.contexto, CL_MEM_READ_WRITE, columnas-1, NULL, NULL);
+	size_t buffer_m_size = sizeof (int) * (columnas*(columnas+1));
+	buffer_m = clCreateBuffer (entorno.contexto, CL_MEM_READ_ONLY,buffer_m_size , NULL, NULL);
+	size_t buffer_v_size = sizeof (int) * (columnas+1);
+	buffer_v = clCreateBuffer (entorno.contexto, CL_MEM_READ_WRITE, buffer_v_size, NULL, NULL);
 	buffer_debug = clCreateBuffer (entorno.contexto, CL_MEM_READ_ONLY, 1, NULL, NULL);	
 	buffer_ne = clCreateBuffer (entorno.contexto, CL_MEM_READ_ONLY, 1, NULL, NULL);	
-	buffer_fila = clCreateBuffer (entorno.contexto, CL_MEM_READ_ONLY, columnas, NULL, NULL);	
-	cl_event eventos[6];
+	size_t buffer_fila_size = sizeof(int)*columnas;
+	buffer_fila = clCreateBuffer (entorno.contexto, CL_MEM_READ_WRITE, buffer_fila_size, NULL, NULL);	
+
+	//Lista de eventos
+	cl_event eventos[5];	
 
 	error = clEnqueueWriteBuffer (entorno.cola, buffer_columnas, CL_TRUE, 0, 1, &columnas, 0, NULL, &eventos[0]);
 	if(error!=CL_SUCCESS)
@@ -263,30 +279,29 @@ void ocl(int columnas,int *m,int *v, int debug, int ne, EntornoOCL_t entorno)
 		CodigoError(error);		
 	}
 
-	error = clEnqueueWriteBuffer (entorno.cola, buffer_m, CL_TRUE, 0, columnas*columnas-1, m, 1, &eventos[0], &eventos[1]);
+	error = clEnqueueWriteBuffer (entorno.cola, buffer_m, CL_TRUE, 0, buffer_m_size, m, 1, &eventos[0], &eventos[1]);
 	if(error!=CL_SUCCESS)
 	{		
 		CodigoError(error);		
 	}	
-	error = clEnqueueWriteBuffer (entorno.cola, buffer_v, CL_TRUE, 0, columnas-1, v,  1, &eventos[1], &eventos[2]);
+	/*error = clEnqueueWriteBuffer (entorno.cola, buffer_v, CL_TRUE, 0, buffer_v_size, v,  1, &eventos[1], &eventos[2]);
+	if(error!=CL_SUCCESS)
+	{		
+		CodigoError(error);		
+	}
+	*/	
+	error = clEnqueueWriteBuffer (entorno.cola, buffer_debug, CL_TRUE, 0, 1, &debug,  1, &eventos[1], &eventos[2]);
 	if(error!=CL_SUCCESS)
 	{		
 		CodigoError(error);		
 	}	
-	error = clEnqueueWriteBuffer (entorno.cola, buffer_debug, CL_TRUE, 0, 1, &debug,  1, &eventos[2], &eventos[3]);
+	error = clEnqueueWriteBuffer (entorno.cola, buffer_ne, CL_TRUE, 0, 1, &ne,  1, &eventos[2], &eventos[3]);
 	if(error!=CL_SUCCESS)
 	{		
 		CodigoError(error);		
 	}	
-	error = clEnqueueWriteBuffer (entorno.cola, buffer_ne, CL_TRUE, 0, 1, &ne,  1, &eventos[3], &eventos[4]);
-	if(error!=CL_SUCCESS)
-	{		
-		CodigoError(error);		
-	}	
-
-	int *fila__ = new int[columnas]; 			// Columna temporal 
-	for(int i =0;i<columnas;i++){fila__[i]=i;}
-	error = clEnqueueWriteBuffer (entorno.cola, buffer_fila, CL_TRUE, 0, 1, &fila__,  1, &eventos[4], &eventos[5]);
+	
+	error = clEnqueueWriteBuffer (entorno.cola, buffer_fila, CL_TRUE, 0, buffer_fila_size, fila__,  1, &eventos[3], &eventos[4]);
 	if(error!=CL_SUCCESS)
 	{		
 		CodigoError(error);		
@@ -298,23 +313,50 @@ void ocl(int columnas,int *m,int *v, int debug, int ne, EntornoOCL_t entorno)
 		CodigoError(error);		
 	}		
 
-	clSetKernelArg (entorno.kernel, 1, sizeof (cl_mem), &buffer_m);
-	clSetKernelArg (entorno.kernel, 2, sizeof (cl_mem), &buffer_v);	
-	clSetKernelArg (entorno.kernel, 3, sizeof (cl_mem), &buffer_debug);	
-	clSetKernelArg (entorno.kernel, 4, sizeof (cl_mem), &buffer_ne);
-	clSetKernelArg (entorno.kernel, 5, sizeof (cl_mem), &buffer_fila);
+	error = clSetKernelArg (entorno.kernel, 1, sizeof (cl_mem), &buffer_m);
+	if(error!=CL_SUCCESS)
+	{		
+		CodigoError(error);		
+	}		
+
+	error = clSetKernelArg (entorno.kernel, 2, sizeof (cl_mem), &buffer_v);	
+	if(error!=CL_SUCCESS)
+	{		
+		CodigoError(error);		
+	}		
+	
+	error = clSetKernelArg (entorno.kernel, 3, sizeof (cl_mem), &buffer_debug);	
+	if(error!=CL_SUCCESS)
+	{		
+		CodigoError(error);		
+	}		
+
+	error = clSetKernelArg (entorno.kernel, 4, sizeof (cl_mem), &buffer_ne);
+	if(error!=CL_SUCCESS)
+	{		
+		CodigoError(error);		
+	}		
+
+	error =clSetKernelArg (entorno.kernel, 5, sizeof (cl_mem), &buffer_fila);
 
 	printf("Empezando ejecución\n");
 	
 
 	//error =clEnqueueTask(entorno.cola,entorno.kernel,4,  eventos, NULL );
-	error =clEnqueueNDRangeKernel (entorno.cola,entorno.kernel, 1, NULL, global_work_size, NULL, 6, eventos, NULL );
+	error =clEnqueueNDRangeKernel (entorno.cola,entorno.kernel, 1, NULL, global_work_size, NULL, 5, eventos, NULL );
 	//clEnqueueTask(entorno.cola, entorno.kernel, 0, NULL,NULL);
 	if(error!=CL_SUCCESS)
 	{
 		printf("Error al ejecutar el kernel\n");
 		CodigoError(error);
 	}
+
+	error = clEnqueueReadBuffer (entorno.cola, buffer_v, CL_TRUE, 0, buffer_v_size, v, 0, NULL, NULL);
+	if(error !=CL_SUCCESS)
+	{
+		printf("Error al leer el work item\n");
+		CodigoError(error);
+	}	
 	clFinish(entorno.cola);
 	//printf("Fin ejecuciión\n");
 	//escribirmatrix(columnas,m);

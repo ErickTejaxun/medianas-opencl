@@ -2,24 +2,24 @@
 __kernel void ordenar(__global int *columnas, __global int *m,__global int *v, __global int *debug, __global int *ne, __global int* fila){
     
     int i = get_global_id (0);        
-    int filas = *columnas + 1;        
-    if(filas ==12)
-    {                        
-        int *inicio = *m + *columnas*i;            
-        printf("\nWork item %i\t%i \tInicia en %i",i,filas,inicio);
-        printf("\tColumnas: %i\n",*columnas);
-        int inicio_ = inicio;
-        printf("%i\t",m[inicio_]);
+    int filas = *columnas + 1;       
+    v[i] = 0; 
+    if(filas>0 && filas<1000000 )
+    {                                               
+        int inicio =   *columnas*i;                    
+        //printf("\nWork item %i\t%i \tInicia en %i",i,filas,inicio);
+        //printf("\tColumnas: %i\n",*columnas);              
         for(int x = 0; x <*columnas; x++)
         {            
+            //printf("%i\t",m[inicio]);  
             //printf("%i\t",fila[x]);
-            //fila[x] = inicio;            
-            //inicio++;            
-        }		
-        /*
-        for(int p = columnas / 2; p > 0 ; p = p/2)
+            fila[x] = m[inicio];            
+            inicio++;            
+        }		                
+                
+        for(int p = *columnas / 2; p > 0 ; p = p/2)
         {							
-            for(int q = p; q < columnas; q++)
+            for(int q = p; q < *columnas; q++)
             {				
                 int tmp = fila[q]; 	
                 int z = q;			
@@ -29,27 +29,31 @@ __kernel void ordenar(__global int *columnas, __global int *m,__global int *v, _
                 }
                 fila[z] = tmp;				
             }
+               
         }	
         
                     
-        int mediana = fila[columnas/2];
+        int mediana = fila[*columnas/2];
+        //printf("%i) \tmediana\t%i\n",i,mediana);
                 
-        int *indiceV = m;  			
-        for(int f = 0 ; f < (columnas)*filas; f++)
+        int indiceV = 0;  			
+        for(int f = 0 ; f < (*columnas)*filas; f++)
         {        		
+            indiceV= m[f];
             if(mediana == 0)
             {
                 indiceV++;
                 break;
             }        
-            if((*indiceV%mediana)==0)
+            if((indiceV%mediana)==0)
             {
                 v[i]++;
-            }						
-            indiceV++;
-        }
-        v[i] = 100;
-        */
+            }						                        
+        }                
+    }
+    else
+    {
+        printf("Error en el work item %i, datos en memoria incorrectos\n",i);
     }
 
 } 
